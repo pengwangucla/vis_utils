@@ -5,6 +5,39 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+def save_image_w_pallete(segment, file_name):
+    import PIL.Image as Image
+    pallete = get_pallete(256)
+
+    segmentation_result = np.uint8(segment)
+    segmentation_result = Image.fromarray(segmentation_result)
+    segmentation_result.putpalette(pallete)
+    segmentation_result.save(file_name)
+
+
+def get_pallete(num_cls):
+    """
+    this function is to get the colormap for visualizing
+    the segmentation mask
+    :param num_cls: the number of visulized class
+    :return: the pallete
+    """
+    n = num_cls
+    pallete = [0]*(n*3)
+    for j in xrange(0,n):
+            lab = j
+            pallete[j*3+0] = 0
+            pallete[j*3+1] = 0
+            pallete[j*3+2] = 0
+            i = 0
+            while (lab > 0):
+                    pallete[j*3+0] |= (((lab >> 0) & 1) << (7-i))
+                    pallete[j*3+1] |= (((lab >> 1) & 1) << (7-i))
+                    pallete[j*3+2] |= (((lab >> 2) & 1) << (7-i))
+                    i = i + 1
+                    lab >>= 3
+    return pallete
+
 def show_grey(image):
     image = image.squeeze()
     assert len(image.shape) == 2
@@ -49,6 +82,7 @@ def split_list(seq, part):
     """
 
     size = len(seq) / part + 1
+    size = int(size)
 
     return [seq[i:i+size] for i  in range(0, len(seq), size)]
 
@@ -107,3 +141,18 @@ def plot_images(images, layout=[2,2], fig_size=10, attr=None, save_fig=False, is
             plt.show()
         else:
             fig.canvas.draw()
+
+
+def dump_to_npy(arrays, file_path=None):
+    """
+       dump set of images to array for local visualization
+       arrays: the input arrays
+       file_path: saving path
+    """
+    assert isinstance(arrays, dict)
+    for k, v in arrays.items():
+        np.save(os.path.join(file_path, k + '.npy'), v)
+
+
+
+
