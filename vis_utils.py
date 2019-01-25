@@ -154,5 +154,44 @@ def dump_to_npy(arrays, file_path=None):
         np.save(os.path.join(file_path, k + '.npy'), v)
 
 
+def padding_image(image_in,
+                  image_size,
+                  crop=None,
+                  interpolation=cv2.INTER_NEAREST,
+                  pad_val=0.):
 
+    """Pad image to target image_size based on a given crop
+    """
+    if image_size[0] <= image_in.shape[0] and \
+            image_size[1] <= image_in.shape[1]:
+        return image_in
 
+    image = image_in.copy()
+    if np.ndim(image) == 2:
+        image = image[:, :, None]
+
+    pad_val = [pad_val] if not isinstance(pad_val, list) else pad_val
+    assert len(pad_val) == image.shape[-1]
+
+    dim = image.shape[2]
+    image_pad = np.ones(image_size + [dim], dtype=image_in.dtype) * \
+        np.array(pad_val)
+
+    if not (crop is None):
+        h, w = image_size
+        crop_cur = np.uint32([crop[0] * h, crop[1] * w,
+                              crop[2] * h, crop[3] * w])
+
+        image = cv2.resize(
+            image, (crop_cur[3] - crop_cur[1], crop_cur[2] - crop_cur[0]),
+            interpolation=interpolation)
+
+    else:
+        h, w = image_in.shape[:2]
+        # default crop is padding right and down
+        crop_cur = [0, 0, h, w]
+    image_pad[crop_cur[0]:crop_cur[2], crop_cur[1]:crop_cur[3], :] = image
+    if np.ndim(image) == 3:
+        image_pad = np.squeeze(image_pad)
+
+    return image_pad
