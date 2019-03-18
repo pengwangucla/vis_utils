@@ -59,7 +59,10 @@ def mkdir_if_need(folder):
 
 
 
-def plot_images(images, layout=[2,2], fig_size=10, attr=None, save_fig=False, is_close=False, fig=None, fig_name='tmp.jpg'):
+def plot_images(images, layout=[2,2],
+                fig_size=10, attr=None,
+                save_fig=False, is_close=False,
+                fig=None, fig_name='tmp.jpg'):
 
     import matplotlib.pylab as pylab
 
