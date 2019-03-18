@@ -1,12 +1,13 @@
 """
-Evaluation metrics.
+Evaluation metrics following mxnet style, which can be concatenated with mxnet
+Author: 'peng wang'
+
 """
 
 import numpy as np
 import utils_3d as uts_3d
 import enum
 from collections import OrderedDict
-import pdb
 
 
 class InputType(enum.IntEnum):
@@ -57,7 +58,7 @@ class FlowMetric(object):
 
 
 class PoseMetric(object):
-    """Segmentation metric, including pixel-acc, mean-acc, mean-iou
+    """Pose metric, including distance and rotation error.
     """
     def __init__(self, output_names=None, label_names=None, is_euler=False,
             trans_idx=None, rot_idx=None, data_type=InputType.MXNET):
@@ -345,6 +346,8 @@ class SegMetric(object):
 
 
 if __name__ == '__main__':
+    # test cases here:
+
     ignore_label = 4
     seg_metric = SegMetric(ignore_label=ignore_label)
     seg = np.array([1, 2, 3, 1, 2, 3, 4])[None, :]
@@ -352,15 +355,16 @@ if __name__ == '__main__':
     seg = np.transpose(seg, axes=(0, 2, 1))
     seg_gt = np.array([1, 2, 4, 1, 2, 3, 4])[None, :]
     seg_metric.update([np.array(seg_gt)], [seg])
-    print seg.shape, seg_gt.shape
-    print seg_metric.get()
+    print(seg.shape)
+    print(seg_gt.shape)
+    print(seg_metric.get())
 
     pose_metric = PoseMetric()
     pose = np.array([1, 2, 3, 1, 2, 3., 4])[None, :]
     pose_gt = np.array([1, 2, 4, 1, 2, 3., 4])[None, :]
 
     pose_metric.update([np.array(pose_gt)], [np.array(pose)])
-    print pose_metric.get()
+    print(pose_metric.get())
 
     flow_metric = FlowMetric()
     flow = np.array([1, 2, 3, 1, 2, 3., 4, 5])
@@ -368,6 +372,6 @@ if __name__ == '__main__':
     flow = flow.reshape((1, 2, 2, 2))
     flow_gt = flow_gt.reshape((1, 2, 2, 2))
     flow_metric.update([np.array(flow_gt)], [np.array(flow)])
-    print flow_metric.get()
+    print(flow_metric.get())
 
 

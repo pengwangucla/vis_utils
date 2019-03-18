@@ -1,3 +1,12 @@
+
+"""
+Various 3D utility functions such as transfer between
+depth, camera pose, and optical flow etc.
+
+Author: 'peng wang'
+
+"""
+
 import cv2
 import numpy as np
 import math
@@ -506,5 +515,5 @@ if __name__ == '__main__':
     refer = np.zeros((5, 5))
     refer[3, 3] = 1
     threshold = 0.4
-    print grid_mesh(5, 5, refer, threshold)
+    print(grid_mesh(5, 5, refer, threshold))
 

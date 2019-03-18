@@ -47,7 +47,6 @@ vis_func = {'gray': show_grey,
 def split_list(seq, part):
     """split a list to sub lists
     """
-
     size = len(seq) / part + 1
 
     return [seq[i:i+size] for i  in range(0, len(seq), size)]
