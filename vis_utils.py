@@ -3,7 +3,41 @@ import os
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import pdb
 
+
+def save_image_w_pallete(segment, file_name):
+    import PIL.Image as Image
+    pallete = get_pallete(256)
+
+    segmentation_result = np.uint8(segment)
+    segmentation_result = Image.fromarray(segmentation_result)
+    segmentation_result.putpalette(pallete)
+    segmentation_result.save(file_name)
+
+
+def get_pallete(num_cls):
+    """
+    this function is to get the colormap for visualizing
+    the segmentation mask
+    :param num_cls: the number of visulized class
+    :return: the pallete
+    """
+    n = num_cls
+    pallete = [0]*(n*3)
+    for j in xrange(0,n):
+            lab = j
+            pallete[j*3+0] = 0
+            pallete[j*3+1] = 0
+            pallete[j*3+2] = 0
+            i = 0
+            while (lab > 0):
+                    pallete[j*3+0] |= (((lab >> 0) & 1) << (7-i))
+                    pallete[j*3+1] |= (((lab >> 1) & 1) << (7-i))
+                    pallete[j*3+2] |= (((lab >> 2) & 1) << (7-i))
+                    i = i + 1
+                    lab >>= 3
+    return pallete
 
 def show_grey(image):
     image = image.squeeze()
@@ -48,6 +82,7 @@ def split_list(seq, part):
     """split a list to sub lists
     """
     size = len(seq) / part + 1
+    size = int(size)
 
     return [seq[i:i+size] for i  in range(0, len(seq), size)]
 
@@ -111,38 +146,59 @@ def plot_images(images, layout=[2,2],
             fig.canvas.draw()
 
 
+def dump_to_npy(arrays, file_path=None):
+    """
+       dump set of images to array for local visualization
+       arrays: the input arrays
+       file_path: saving path
+    """
+    assert isinstance(arrays, dict)
+    for k, v in arrays.items():
+        np.save(os.path.join(file_path, k + '.npy'), v)
+
+
 def padding_image(image_in,
                   image_size,
                   crop=None,
                   interpolation=cv2.INTER_NEAREST,
                   pad_val=0.):
+
     """Pad image to target image_size based on a given crop
     """
+    assert isinstance(pad_val, float) | isinstance(pad_val, list)
+
     if image_size[0] <= image_in.shape[0] and \
             image_size[1] <= image_in.shape[1]:
         return image_in
 
     image = image_in.copy()
-    if np.ndim(image) == 2:
+    in_dim = np.ndim(image)
+    if in_dim == 2:
         image = image[:, :, None]
 
-    pad_val = [pad_val] if not isinstance(pad_val, list) else pad_val
+    if isinstance(pad_val, float):
+        pad_val = [pad_val] * image.shape[-1]
     assert len(pad_val) == image.shape[-1]
 
     dim = image.shape[2]
-    image_pad = np.ones(image_size + [dim], dtype=image_in.dtype) * np.array(pad_val)
+    image_pad = np.ones(image_size + [dim], dtype=image_in.dtype) * \
+        np.array(pad_val)
+
     if not (crop is None):
         h, w = image_size
-        crop_cur = np.uint32([crop[0] * h, crop[1] * w, crop[2] * h, crop[3] * w])
+        crop_cur = np.uint32([crop[0] * h, crop[1] * w,
+                              crop[2] * h, crop[3] * w])
         image = cv2.resize(
-                image, (crop_cur[3] - crop_cur[1], crop_cur[2] - crop_cur[0]),
-                interpolation=interpolation)
+            image, (crop_cur[3] - crop_cur[1], crop_cur[2] - crop_cur[0]),
+            interpolation=interpolation)
+
     else:
         h, w = image_in.shape[:2]
         # default crop is padding right and down
         crop_cur = [0, 0, h, w]
     image_pad[crop_cur[0]:crop_cur[2], crop_cur[1]:crop_cur[3], :] = image
-    if np.ndim(image) == 3:
+
+    if in_dim == 2:
         image_pad = np.squeeze(image_pad)
 
     return image_pad
