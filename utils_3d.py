@@ -83,6 +83,100 @@ def depth2disp(depth, focal_len, base):
     return disp
 
 
+def depth2normal(depth, intrinsic):
+    """ intrinsic must be normalized  fx / width, fy / height, cx / with
+        cy / height
+    """
+    import cython_utils as cut
+    assert intrinsic[2] < 1 and intrinsic[3] < 1
+
+    h, w = depth.shape
+    intrinsic[[0, 2]] *= np.float32(w)
+    intrinsic[[1, 3]] *= np.float32(h)
+    normal = cut.depth2normals_np(depth, np.float32(intrinsic))
+    normal = normal.transpose([1, 2, 0])
+
+    return normal
+
+
+def depth2flow(depth1, extr1, extr2, K, depth2=None, is_norm=False):
+    """Convert depth from camera1 to camera 2 as flow for
+       transforming the labels or warping images.
+
+       extr1: either a 3x4 numpy matrix or a 6 dim numpy array with
+              first 3 dim is rotation matrix and last 3 dim vector as
+               translation (roll pitch yaw)
+       K: is normalized intrinsic vector
+       depth2: the depth of the second image
+       is_norm: whehter to normalize the flow with depth height and width
+    """
+
+    assert (K[2] <= 1. or K[3] <= 1.), "intrinsic must be normalized."
+
+    if extr1.size == 6:
+        # convert vector representation to matrix
+        extr1_mat = np.zeros((3,4), dtype=np.float32)
+        extr2_mat = np.zeros((3,4), dtype=np.float32)
+        extr1_mat[:, :3] = euler_angles_to_rotation_matrix(extr1[:3])
+        extr2_mat[:, :3] = euler_angles_to_rotation_matrix(extr2[:3])
+        for i in range(3):
+            extr1_mat[i, 3] = extr1[i + 3]
+            extr2_mat[i, 3] = extr2[i + 3]
+        extr1 = extr1_mat
+        extr2 = extr2_mat
+
+    K_mat = intrinsic_vec_to_mat(K, depth1.shape)
+    height, width = depth1.shape
+    pix_num = height * width
+
+    xyz_camera = depth2xyz(depth1, K)
+    valid = xyz_camera[:, 3] > 0
+    xyz_camera = xyz_camera[valid, 0:3]
+    xyz_world = transform_c2w(xyz_camera, extr1)
+    xyz_camera2 = transform_w2c(xyz_world, extr2)
+
+    project = np.dot(K_mat, xyz_camera2.transpose())
+    project[0:2, :] /= project[2, :]
+
+    x, y = np.meshgrid(range(1, width + 1), range(1, height + 1))
+    x = x.reshape(pix_num)[valid].astype(np.float32)
+    y = y.reshape(pix_num)[valid].astype(np.float32)
+
+    # zbuffer here to prevent non-valid flow
+    if depth2 is not None:
+        proj_depth, _, index_bool = gen_depth_map(
+            project.astype(np.float32), height, width, 2, depth2)
+        mask = index_bool.reshape((height, width))
+        index = np.flatnonzero(index_bool)
+    else:
+        import cython_utils as cut
+        proj_depth, index = cut.gen_depth_map(
+                project.astype(np.float32), height, width, 1)
+        index = index.flatten()
+        index = index[index > 0]
+
+    mask = np.zeros(pix_num)
+    valid_index = np.int32((y[index] - 1) * width + x[index] - 1)
+    mask[valid_index] = 1
+    mask = mask.reshape((height, width))
+
+    flowx = project[0, index] - x[index]
+    flowy = project[1, index] - y[index]
+    flow = np.zeros(2 * height * width, dtype=np.float32)
+
+    valid = np.flatnonzero(valid)[index]
+    flow[np.concatenate((valid, valid + height * width))] = \
+            np.concatenate((flowx, flowy))
+    flow = np.transpose(flow.reshape((2, height, width)), (1, 2, 0))
+
+    if is_norm:
+        flow[:, :, 0] /= np.float32(width)
+        flow[:, :, 1] /= np.float32(height)
+
+    return flow, proj_depth, mask
+
+
+
 def euler_angles_to_rotation_matrix(angle, is_dir=False):
     """Convert euler angels to quaternions.
     Input:

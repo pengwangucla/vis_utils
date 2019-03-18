@@ -1,3 +1,5 @@
 *.pyc
+*.so
+*/cython_util.cpp
 constants.py
 slurm.py
