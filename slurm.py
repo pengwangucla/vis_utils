@@ -238,8 +238,8 @@ def create_sbatch_restart_command():
     # Get all the necessary information by querying SLURM with this job id
     info = get_slurm_job_info()
     partition = info.get("Partition")
-    partition = "TitanXx8,TitanXx8_slong,1080Ti,TitanXx8_slong,1080Ti_slong,M40x8,M40x8_slong"
-#
+    # partition = "TitanXx8,TitanXx8_slong,1080Ti,TitanXx8_slong,1080Ti_slong,M40x8,M40x8_slong"
+
     num_cpus = int(info["NumCPUs"])
     cpus_per_task = int(info["CPUs/Task"])
     gres = info.get("Gres")

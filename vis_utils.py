@@ -3,6 +3,7 @@ import os
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import pdb
 
 
 def save_image_w_pallete(segment, file_name):
@@ -162,15 +163,19 @@ def padding_image(image_in,
 
     """Pad image to target image_size based on a given crop
     """
+    assert isinstance(pad_val, float) | isinstance(pad_val, list)
+
     if image_size[0] <= image_in.shape[0] and \
             image_size[1] <= image_in.shape[1]:
         return image_in
 
     image = image_in.copy()
-    if np.ndim(image) == 2:
+    in_dim = np.ndim(image)
+    if in_dim == 2:
         image = image[:, :, None]
 
-    pad_val = [pad_val] if not isinstance(pad_val, list) else pad_val
+    if isinstance(pad_val, float):
+        pad_val = [pad_val] * image.shape[-1]
     assert len(pad_val) == image.shape[-1]
 
     dim = image.shape[2]
@@ -181,7 +186,6 @@ def padding_image(image_in,
         h, w = image_size
         crop_cur = np.uint32([crop[0] * h, crop[1] * w,
                               crop[2] * h, crop[3] * w])
-
         image = cv2.resize(
             image, (crop_cur[3] - crop_cur[1], crop_cur[2] - crop_cur[0]),
             interpolation=interpolation)
@@ -191,7 +195,8 @@ def padding_image(image_in,
         # default crop is padding right and down
         crop_cur = [0, 0, h, w]
     image_pad[crop_cur[0]:crop_cur[2], crop_cur[1]:crop_cur[3], :] = image
-    if np.ndim(image) == 3:
+
+    if in_dim == 2:
         image_pad = np.squeeze(image_pad)
 
     return image_pad
