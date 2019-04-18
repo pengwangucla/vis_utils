@@ -2,6 +2,7 @@
 # data transforms for neural network transform, from a 2D image to 4D blob
 #############
 import numpy as np
+import utils_3d as uts_3d
 
 NEW_X = np.newaxis
 def image_transform(img, method='norm', center_crop=None):
@@ -34,6 +35,7 @@ def score_transform(score):
 def mask_label(label, ignore_labels):
     if isinstance(ignore_labels, int):
         ignore_labels = [ignore_labels]
+
     mask = label >= 0
     for ignore_label in ignore_labels:
         mask = np.logical_and(mask, label != ignore_label)
@@ -53,3 +55,26 @@ def label_db_transform(label, with_channel=False,
 
     return label # (1, h, w)
 
+
+def pose_transform(pose,
+                   mean_pose=None,
+                   scale=None,
+                   to_quater=False):
+    """
+    Transform pose to network inputs
+    Inputs:
+        to_quater: to the quaternion representation
+    """
+
+
+    if mean_pose is None:
+        mean_pose = np.zeros(3, dtype=np.float32)
+    if scale is None:
+        scale = 1.0
+
+    pose[:3] = (pose[:3] - mean_pose)/scale
+    if to_quater:
+        pose = np.concatenate([pose[:3],
+            uts_3d.euler_angles_to_quaternions(pose[3:])])
+
+    return pose[NEW_X, :]

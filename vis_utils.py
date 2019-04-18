@@ -6,6 +6,21 @@ import matplotlib.pyplot as plt
 import pdb
 
 
+def split_list(seq, part):
+    """split a list to sub lists
+    """
+    size = len(seq) / part + 1
+    size = int(size)
+
+    return [seq[i:i+size] for i  in range(0, len(seq), size)]
+
+
+def mkdir_if_need(folder):
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
+
+
 def save_image_w_pallete(segment, file_name):
     import PIL.Image as Image
     pallete = get_pallete(256)
@@ -38,6 +53,27 @@ def get_pallete(num_cls):
                     i = i + 1
                     lab >>= 3
     return pallete
+
+
+def color2label(label_color, color_map):
+    """
+    Convert color image to semantic id based on color_map
+    """
+    # default bkg 255
+    label_color = np.int32(label_color)
+    height, width = label_color.shape[0:2]
+    label = label_color[:, :, 0] * (255 ** 2) + \
+            label_color[:, :, 1] * 255 + \
+            label_color[:, :, 2]
+
+    label_id = np.unique(label)
+    for rgb, i in color_map.items():
+        cur_num = rgb[0] * (255 ** 2) + rgb[1] * 255 + rgb[2]
+        if cur_num in label_id:
+            mask = (label - cur_num) != 0
+            label = label * mask  + i * (1 - mask)
+
+    return label
 
 def show_grey(image):
     image = image.squeeze()
@@ -78,28 +114,12 @@ vis_func = {'gray': show_grey,
             'color': plt.imshow,
             'cv_color': cv2.imshow}
 
-def split_list(seq, part):
-    """split a list to sub lists
-    """
-    size = len(seq) / part + 1
-    size = int(size)
-
-    return [seq[i:i+size] for i  in range(0, len(seq), size)]
-
-
-def mkdir_if_need(folder):
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-
-
-
 def plot_images(images, layout=[2,2],
                 fig_size=10, attr=None,
                 save_fig=False, is_close=False,
                 fig=None, fig_name='tmp.jpg'):
 
     import matplotlib.pylab as pylab
-
 
     is_show = True if fig is None else False
     if fig is None:
@@ -202,3 +222,114 @@ def padding_image(image_in,
         image_pad = np.squeeze(image_pad)
 
     return image_pad
+
+
+def one_hot(label_map, class_num):
+    shape = np.array(label_map.shape)
+    length = np.prod(shape)
+    label_one_hot = np.zeros((length, class_num))
+    label_flat = label_map.flatten()
+    label_one_hot[range(length), label_flat] = 1
+    label_one_hot = label_one_hot.reshape(shape.tolist() + [class_num])
+
+    return label_one_hot
+
+
+def prob2color(label_prob, color_map, bkg_color=[0,0,0]):
+    height, width, dim = label_prob.shape
+
+    color_map_mat = np.matrix([bkg_color] + color_map)
+    label_prob_mat = np.matrix(label_prob.reshape((height * width, dim)))
+    label_color = np.array(label_prob_mat * color_map_mat)
+    label_color = label_color.reshape((height, width, -1))
+
+    return np.uint8(label_color)
+
+
+def label2color(label, color_map, bkg_color=[0, 0, 0]):
+    height, width = label.shape[0:2]
+    class_num = len(color_map) + 1
+    label_one_hot = one_hot(label, class_num)
+    label_color = prob2color(label_one_hot, color_map, bkg_color)
+
+    return label_color
+
+
+def video_to_frames(in_path, out_path, max_frame=100000):
+    """separate video to frames
+    """
+    print("saving videos to frames at {}".format(out_path))
+    cap = cv2.VideoCapture(in_path)
+    frame_id = 0
+    mkdir_if_need(out_path)
+
+    cv2.namedWindow("video")
+    while(cap.isOpened()):
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        filename = out_path + 'frame {}.jpg'.format(str(frame_id))
+        print(filename)
+        cv2.imshow('video',frame)
+        cv2.imwrite(filename, frame)
+        frame_id += 1
+        if frame_id > max_frame:
+            break
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+    print("finished")
+
+
+def frame_to_video(image_path,
+                   label_path,
+                   frame_list,
+                   label_ext='',
+                   is_color=False,
+                   color_map=None,
+                   sz=None,
+                   fps=10,
+                   alpha=0.5,
+                   video_name='video.avi'):
+    """Combine frames to video
+    """
+
+    if sz is None:
+        label = cv2.imread("%s%s.png" % (label_path, frame_list[0]))
+        sz = label.shape
+
+    fourcc = cv2.cv.CV_FOURCC(*'DIV3')
+    video = cv2.VideoWriter(video_name, fourcc, fps, (sz[1], sz[0]))
+    for i, image_name in enumerate(frame_list):
+        print "compress %04d" % i
+        image = cv2.resize(cv2.imread("%s%s.jpg" % (image_path, image_name),
+            cv2.IMREAD_UNCHANGED),
+            (sz[1], sz[0]))
+        label_name = image_name + label_ext
+        label = cv2.resize(cv2.imread("%s%s.png" % (label_path, label_name),
+            cv2.IMREAD_UNCHANGED),
+            (sz[1], sz[0]), interpolation=cv2.INTER_NEAREST)
+
+        if not is_color:
+            bkg = [255, 255, 255]
+            label[label > len(color_map)] = 0
+            label = label2color(label, color_map, bkg)
+            label = label[:, :, ::-1]
+
+        frame = np.uint8(image * alpha + label * (1 - alpha))
+        video.write(frame)
+
+    cv2.destroyAllWindows()
+    video.release()
+
+def test_one_hot():
+    label = np.array([[1, 2], [3, 4]])
+    label_one_hot = one_hot(label, 5)
+    print(label_one_hot)
+
+
+if __name__ == '__main__':
+    test_one_hot()
