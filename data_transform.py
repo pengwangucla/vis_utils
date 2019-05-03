@@ -56,6 +56,17 @@ def label_db_transform(label, with_channel=False,
     return label # (1, h, w)
 
 
+def label_transform(label, label_mapping=None):
+    """
+        Transform gt label to the training and evaluation label id
+    """
+    if label_mapping is not None:
+        label = np.uint8(label)
+        label = np.float32(label_mapping[label])
+
+    return label_db_transform(label)
+
+
 def pose_transform(pose,
                    mean_pose=None,
                    scale=None,

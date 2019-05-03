@@ -1,7 +1,9 @@
 """
 Evaluation metrics following mxnet style, which can be concatenated with mxnet
 But it can also adopted as metric using numpy arrays
+
 Author: 'peng wang'
+Email: 'moonraptor97@gmail.com
 
 """
 
@@ -9,6 +11,7 @@ import numpy as np
 import utils_3d as uts_3d
 import enum
 from collections import OrderedDict
+import time
 import pdb
 
 
@@ -95,7 +98,7 @@ def get_pose_metric(data_type=InputType.NUMPY):
                      is_euler=False,
                      trans_idx=None,
                      rot_idx=None,
-                     data_type=InputType.NUMPY):
+                     data_type=data_type):
 
             """ Initializer.
             """
@@ -293,13 +296,14 @@ def get_seg_metric(data_type=InputType.NUMPY):
         """
         def __init__(self, output_names=None, label_names=None,
                      use_ignore=True, ignore_label=255,
-                     data_type=InputType.NUMPY):
+                     data_type=data_type):
             """Initializer.
             Inputs:
                 ignore_label can be a list or a integer
             """
             if data_type == InputType.MXNET:
                 super(SegMetric, self).__init__('SegMetric', output_names, label_names)
+            self.data_type = data_type
             self._names = ['pixel-acc', 'mean-acc', 'mean-iou']
             self._use_ignore = use_ignore
             if isinstance(ignore_label, list):
@@ -335,6 +339,7 @@ def get_seg_metric(data_type=InputType.NUMPY):
                     self._fn = np.zeros(self._nclass)
                     self._num_inst = np.zeros(self._nclass)
 
+                pred, label = convert2np(pred, label, self.data_type)
                 label = label.ravel()
                 pred = pred.argmax(1).ravel()
 

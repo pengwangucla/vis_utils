@@ -235,6 +235,13 @@ def one_hot(label_map, class_num):
     return label_one_hot
 
 
+def prob2label(label_prob):
+    """Convert probability to a descrete label map
+    """
+    assert label_prob.ndim == 3
+    return np.argmax(label_prob, axis=2)
+
+
 def prob2color(label_prob, color_map, bkg_color=[0,0,0]):
     height, width, dim = label_prob.shape
 
@@ -296,15 +303,22 @@ def frame_to_video(image_path,
                    video_name='video.avi'):
     """Combine frames to video
     """
+    import sys
 
     if sz is None:
-        label = cv2.imread("%s%s.png" % (label_path, frame_list[0]))
+        label = cv2.imread("%s/%s.png" % (label_path, frame_list[0]))
         sz = label.shape
 
-    fourcc = cv2.cv.CV_FOURCC(*'DIV3')
+    if cv2.__version__[0] == '3':
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    elif cv2.__version__[0] == '2':
+        fourcc = cv2.cv.CV_FOURCC(*'DIV3')
+
     video = cv2.VideoWriter(video_name, fourcc, fps, (sz[1], sz[0]))
     for i, image_name in enumerate(frame_list):
-        print "compress %04d" % i
+        sys.stdout.write('\r>>process %04d / %04d' % (i, len(frame_list)))
+        sys.stdout.flush()
+
         image = cv2.resize(cv2.imread("%s%s.jpg" % (image_path, image_name),
             cv2.IMREAD_UNCHANGED),
             (sz[1], sz[0]))
@@ -314,6 +328,7 @@ def frame_to_video(image_path,
             (sz[1], sz[0]), interpolation=cv2.INTER_NEAREST)
 
         if not is_color:
+            assert color_map is not None
             bkg = [255, 255, 255]
             label[label > len(color_map)] = 0
             label = label2color(label, color_map, bkg)
@@ -324,6 +339,7 @@ def frame_to_video(image_path,
 
     cv2.destroyAllWindows()
     video.release()
+
 
 def test_one_hot():
     label = np.array([[1, 2], [3, 4]])

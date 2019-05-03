@@ -237,7 +237,7 @@ def euler_angles_to_quaternions(angle):
     return q[0] if in_dim == 1 else q
 
 
-def quater_to_rot_mat(qu, is_dir=False):
+def quaternions_to_rot_mat(qu, is_dir=False):
     R = np.zeros((3,3))
     qw, qx, qy, qz = qu[0], qu[1], qu[2], qu[3]
 
@@ -257,6 +257,12 @@ def quater_to_rot_mat(qu, is_dir=False):
         R = R[:, 2]
 
     return R
+
+
+def quaternions_to_euler_angles(qu):
+    mat = quaternions_to_rot_mat(qu)
+    angles = rotation_matrix_to_euler_angles(mat)
+    return angles
 
 
 # Calculates rotation matrix to euler angles
