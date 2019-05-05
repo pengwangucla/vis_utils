@@ -89,3 +89,19 @@ def pose_transform(pose,
             uts_3d.euler_angles_to_quaternions(pose[3:])])
 
     return pose[NEW_X, :]
+
+
+def point_transform(points):
+    """ Transform 3d points
+    """
+    points = np.transpose(points, [1, 0])
+    return np.expand_dims(points, axis=0)
+
+
+def flow_transform(flow):
+    """ Transform optical flow
+    """
+
+    flow = np.transpose(flow, [2, 0, 1])
+    return np.expand_dims(flow, axis=0) #(1, 2, h, w)
+
