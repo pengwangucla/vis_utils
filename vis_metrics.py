@@ -2,7 +2,7 @@
 Evaluation metrics following mxnet style, which can be concatenated with mxnet
 But it can also adopted as metric using numpy arrays
 
-Author: 'peng wang'
+uthor: 'peng wang'
 Email: 'moonraptor97@gmail.com
 
 """
@@ -13,7 +13,14 @@ import enum
 from collections import OrderedDict
 import time
 import pdb
+b = pdb.set_trace
 
+
+def iou(mask_s, mask_t):
+    tp = ((mask_s > 0) & (mask_t > 0)).sum()
+    total = ((mask_s > 0) | (mask_t > 0)).sum()
+    res = tp / total if total > 0 else 0.0
+    return res
 
 class InputType(enum.IntEnum):
     MXNET = 1
@@ -38,6 +45,7 @@ def obtain_super_class(data_type=InputType.NUMPY):
     elif data_type == InputType.MXNET:
         import mxnet as mx
         MetricClass = mx.metric.EvalMetric
+
     return MetricClass
 
 
@@ -303,6 +311,7 @@ def get_seg_metric(data_type=InputType.NUMPY):
             """
             if data_type == InputType.MXNET:
                 super(SegMetric, self).__init__('SegMetric', output_names, label_names)
+
             self.data_type = data_type
             self._names = ['pixel-acc', 'mean-acc', 'mean-iou']
             self._use_ignore = use_ignore
@@ -328,12 +337,18 @@ def get_seg_metric(data_type=InputType.NUMPY):
             self._ious = None
             self._nclass = 0
 
-        def update(self, labels, preds):
-            """Update metrics.
+        def update(self, labels, preds, reduce_dim=1):
             """
+
+            channel_idx: which dimension to reduce
+            Update metrics.
+                labels: batch_size, height, width
+                preds: batch_size, num_class, height, width
+            """
+
             for pred, label in zip(preds, labels):
                 if self._nclass == 0:
-                    self._nclass = pred.shape[1]
+                    self._nclass = pred.shape[reduce_dim]
                     self._tp = np.zeros(self._nclass)
                     self._fp = np.zeros(self._nclass)
                     self._fn = np.zeros(self._nclass)
@@ -341,7 +356,7 @@ def get_seg_metric(data_type=InputType.NUMPY):
 
                 pred, label = convert2np(pred, label, self.data_type)
                 label = label.ravel()
-                pred = pred.argmax(1).ravel()
+                pred = pred.argmax(reduce_dim).ravel()
 
                 if self._use_ignore:
                     mask = label >= 0
@@ -351,7 +366,7 @@ def get_seg_metric(data_type=InputType.NUMPY):
                     label = label[mask]
                     pred = pred[mask]
 
-                for i in xrange(self._nclass):
+                for i in range(self._nclass):
                     self._tp[i] += ((label == i) & (pred == i)).sum()
                     self._fp[i] += ((label != i) & (pred == i)).sum()
                     self._fn[i] += ((label == i) & (pred != i)).sum()
@@ -374,6 +389,7 @@ def get_seg_metric(data_type=InputType.NUMPY):
         def get_ious(self):
             """Get current ious.
             """
+            self.get()
             return self._ious
 
         def get_pixel_num(self):
@@ -388,33 +404,37 @@ def get_seg_metric(data_type=InputType.NUMPY):
 
 if __name__ == '__main__':
     # test cases here:
+    mask = np.ones(3)
+    mask2 = np.eye(3)
+    print(iou(mask, mask2))
 
-    ignore_label = 4
-    seg_metric = get_seg_metric()(ignore_label=ignore_label)
-    seg = np.array([1, 2, 3, 1, 2, 3, 4])[None, :]
-    seg = np.one_hot(np.array(seg), 5)
-    seg = np.transpose(seg, axes=(0, 2, 1))
-    seg_gt = np.array([1, 2, 4, 1, 2, 3, 4])[None, :]
-    seg_metric.reset()
-    seg_metric.update([np.array(seg_gt)], [seg])
-    # print(seg.shape)
-    # print(seg_gt.shape)
-    # print(seg_metric.get())
 
-    pose_metric = get_pose_metric()()
-    pose = np.array([1, 2, 3, 1, 2, 3., 4])[None, :]
-    pose_gt = np.array([1, 2, 4, 1, 2, 3., 4])[None, :]
-    pose_metric.reset()
-    pose_metric.update([np.array(pose_gt)], [np.array(pose)])
-    print(pose_metric.get())
+    # ignore_label = 4
+    # seg_metric = get_seg_metric()(ignore_label=ignore_label)
+    # seg = np.array([1, 2, 3, 1, 2, 3, 4])[None, :]
+    # seg = np.one_hot(np.array(seg), 5)
+    # seg = np.transpose(seg, axes=(0, 2, 1))
+    # seg_gt = np.array([1, 2, 4, 1, 2, 3, 4])[None, :]
+    # seg_metric.reset()
+    # seg_metric.update([np.array(seg_gt)], [seg])
+    # # print(seg.shape)
+    # # print(seg_gt.shape)
+    # # print(seg_metric.get())
 
-    flow_metric = get_flow_metric()()
-    flow = np.array([2, 2, 3, 1, 2, 3., 4, 5])
-    flow_gt = np.array([1, 2, 4, 1, 2, 3., 4, 6])
-    flow = flow.reshape((1, 2, 2, 2))
-    flow_gt = flow_gt.reshape((1, 2, 2, 2))
-    flow_metric.reset()
-    flow_metric.update([np.array(flow_gt)], [np.array(flow)])
-    print(flow_metric.get())
+    # pose_metric = get_pose_metric()()
+    # pose = np.array([1, 2, 3, 1, 2, 3., 4])[None, :]
+    # pose_gt = np.array([1, 2, 4, 1, 2, 3., 4])[None, :]
+    # pose_metric.reset()
+    # pose_metric.update([np.array(pose_gt)], [np.array(pose)])
+    # print(pose_metric.get())
+
+    # flow_metric = get_flow_metric()()
+    # flow = np.array([2, 2, 3, 1, 2, 3., 4, 5])
+    # flow_gt = np.array([1, 2, 4, 1, 2, 3., 4, 6])
+    # flow = flow.reshape((1, 2, 2, 2))
+    # flow_gt = flow_gt.reshape((1, 2, 2, 2))
+    # flow_metric.reset()
+    # flow_metric.update([np.array(flow_gt)], [np.array(flow)])
+    # print(flow_metric.get())
 
 

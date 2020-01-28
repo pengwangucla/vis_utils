@@ -13,6 +13,9 @@ import math
 
 
 def intrinsic_vec_to_mat(intrinsic, shape=[1,1]):
+    """
+        intrinsic: [fx, fy, cx, cy]
+    """
 
     K = np.zeros((3,3), dtype=np.float32)
 
@@ -73,6 +76,7 @@ def inverse_depth(depth):
     depth_inv = depth.copy()
     depth_inv[depth > 0] = 1. / depth_inv[depth > 0]
     return depth_inv
+
 
 
 def depth2disp(depth, focal_len, base):
@@ -143,17 +147,17 @@ def depth2flow(depth1, extr1, extr2, K, depth2=None, is_norm=False):
     y = y.reshape(pix_num)[valid].astype(np.float32)
 
     # zbuffer here to prevent non-valid flow
-    if depth2 is not None:
-        proj_depth, _, index_bool = gen_depth_map(
-            project.astype(np.float32), height, width, 2, depth2)
-        mask = index_bool.reshape((height, width))
-        index = np.flatnonzero(index_bool)
-    else:
-        import cython_utils as cut
-        proj_depth, index = cut.gen_depth_map(
-                project.astype(np.float32), height, width, 1)
-        index = index.flatten()
-        index = index[index > 0]
+    # if depth2 is not None:
+    proj_depth, _, index_bool = gen_depth_map(
+        project.astype(np.float32), height, width, 2, depth2)
+    mask = index_bool.reshape((height, width))
+    index = np.flatnonzero(index_bool)
+    # else:
+    #     import cython_utils as cut
+    #     proj_depth, index = cut.gen_depth_map(
+    #             project.astype(np.float32), height, width, 1)
+    #     index = index.flatten()
+    #     index = index[index > 0]
 
     mask = np.zeros(pix_num)
     valid_index = np.int32((y[index] - 1) * width + x[index] - 1)
